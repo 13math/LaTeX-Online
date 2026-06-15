@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LaTeX Editor</title>
+
+  <!-- Monaco Editor (VS Code engine) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+  <style>
+    /* ── Reset & tokens ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2a2d3e;
+      --accent:    #7c6af7;
+      --accent-hi: #9d8fff;
+      --green:     #3dd68c;
+      --red:       #f87171;
+      --yellow:    #fbbf24;
+      --text:      #e2e4f0;
+      --muted:     #6b7280;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --font-ui:   'Inter', system-ui, sans-serif;
+      --radius:    6px;
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-ui); }
+
+    /* ── Layout ───────────────────────────────────────────────────────── */
+    #app { display: grid; grid-template-rows: 48px 1fr; height: 100vh; }
+
+    /* ── Topbar ───────────────────────────────────────────────────────── */
+    #topbar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+    }
+    #topbar .logo {
+      font-size: 15px; font-weight: 700; letter-spacing: -.3px;
+      color: var(--accent-hi);
+      margin-right: 8px;
+    }
+    #topbar .logo span { color: var(--muted); font-weight: 400; }
+
+    #repo-info { font-size: 12px; color: var(--muted); flex: 1; }
+    #repo-info strong { color: var(--text); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: var(--radius);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      border: none; transition: filter .15s, opacity .15s;
+      font-family: var(--font-ui);
+    }
+    .btn:hover { filter: brightness(1.12); }
+    .btn:disabled { opacity: .45; cursor: default; filter: none; }
+    .btn-primary  { background: var(--accent);  color: #fff; }
+    .btn-ghost    { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+    .btn-success  { background: var(--green); color: #0f1117; }
+
+    /* ── Main panes ───────────────────────────────────────────────────── */
+    #main { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
+
+    /* ── Editor pane ──────────────────────────────────────────────────── */
+    #editor-pane { display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+
+    #editor-toolbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #editor-toolbar .file-tab {
+      font-size: 12px; color: var(--text);
+      padding: 4px 10px; border-radius: 4px;
+      background: var(--bg); border: 1px solid var(--border);
+    }
+    .auto-toggle {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--muted); margin-left: auto;
+    }
+    .toggle-switch {
+      width: 32px; height: 18px; border-radius: 9px;
+      background: var(--border); cursor: pointer;
+      position: relative; transition: background .2s;
+      border: none;
+    }
+    .toggle-switch.on { background: var(--accent); }
+    .toggle-switch::after {
+      content: ''; position: absolute;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #fff; top: 3px; left: 3px;
+      transition: transform .2s;
+    }
+    .toggle-switch.on::after { transform: translateX(14px); }
+
+    #monaco-container { flex: 1; overflow: hidden; }
+
+    /* ── Status bar (bottom of editor) ───────────────────────────────── */
+    #status-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 4px 12px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--muted); flex-shrink: 0;
+    }
+    #status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    #status-dot.saving  { background: var(--yellow); animation: pulse 1s infinite; }
+    #status-dot.saved   { background: var(--green); }
+    #status-dot.error   { background: var(--red); }
+    #status-dot.running { background: var(--accent); animation: pulse .8s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+
+    /* ── Preview pane ─────────────────────────────────────────────────── */
+    #preview-pane { display: flex; flex-direction: column; background: var(--bg); }
+
+    #preview-toolbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #preview-toolbar .label { font-size: 12px; color: var(--muted); flex: 1; }
+
+    #preview-frame-wrap { flex: 1; overflow: hidden; position: relative; }
+    #preview-frame { width: 100%; height: 100%; border: none; background: #525659; }
+
+    /* placeholder */
+    #preview-placeholder {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; color: var(--muted); font-size: 13px;
+    }
+    #preview-placeholder svg { opacity: .3; }
+    #preview-placeholder.hidden { display: none; }
+
+    /* loading overlay */
+    #compile-overlay {
+      position: absolute; inset: 0;
+      background: rgba(15,17,23,.85); backdrop-filter: blur(4px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; color: var(--text); font-size: 13px;
+    }
+    #compile-overlay.hidden { display: none; }
+    .spinner {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Auth modal ───────────────────────────────────────────────────── */
+    #auth-modal {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(15,17,23,.92); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #auth-modal.hidden { display: none; }
+    .modal-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 36px 40px;
+      max-width: 420px; width: 90%; text-align: center;
+    }
+    .modal-box h2 { font-size: 22px; margin-bottom: 8px; }
+    .modal-box p  { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+    .modal-box input {
+      width: 100%; padding: 10px 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-size: 13px;
+      font-family: var(--font-mono); margin-bottom: 12px;
+      outline: none; transition: border-color .15s;
+    }
+    .modal-box input:focus { border-color: var(--accent); }
+    .modal-box .hint { font-size: 11px; color: var(--muted); margin-top: 10px; }
+    .modal-box .hint a { color: var(--accent-hi); }
+
+    /* ── Log panel ────────────────────────────────────────────────────── */
+    #log-panel {
+      position: fixed; bottom: 0; left: 0; right: 50%;
+      height: 160px; background: #0d0f18;
+      border-top: 1px solid var(--border);
+      font-family: var(--font-mono); font-size: 11px;
+      overflow-y: auto; padding: 8px 12px;
+      transform: translateY(100%); transition: transform .25s;
+      z-index: 20;
+    }
+    #log-panel.open { transform: translateY(0); }
+    #log-panel .log-line { line-height: 1.8; }
+    #log-panel .log-line.err { color: var(--red); }
+    #log-panel .log-line.ok  { color: var(--green); }
+    #log-panel .log-line.info{ color: var(--muted); }
+
+    /* ── Toast ────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 16px;
+      font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,.4);
+      transform: translateY(20px); opacity: 0;
+      transition: all .25s; pointer-events: none; z-index: 200;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.ok  { border-left: 3px solid var(--green); }
+    #toast.err { border-left: 3px solid var(--red); }
+  </style>
+</head>
+<body>
+
+<!-- ── Auth Modal ─────────────────────────────────────────────────────────── -->
+<div id="auth-modal">
+  <div class="modal-box">
+    <h2>Conectar con GitHub</h2>
+    <p>Introduce un <strong>Personal Access Token</strong> con permisos<br>
+       <code>repo</code> y <code>actions</code> para continuar.</p>
+    <input id="token-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+    <input id="repo-input"  type="text"     placeholder="usuario/mi-latex-repo" />
+    <button class="btn btn-primary" style="width:100%" onclick="conectar()">Conectar</button>
+    <p class="hint">
+      Genera tu token en
+      <a href="https://github.com/settings/tokens/new?scopes=repo,workflow" target="_blank">
+        GitHub → Settings → Tokens
+      </a><br>
+      El token se guarda <em>solo en tu navegador</em> (sessionStorage).
+    </p>
+  </div>
+</div>
+
+<!-- ── App shell ──────────────────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- Topbar -->
+  <div id="topbar">
+    <span class="logo">tex<span>.live</span></span>
+    <span id="repo-info">No conectado</span>
+    <button class="btn btn-ghost" id="btn-log" onclick="toggleLog()">📋 Log</button>
+    <button class="btn btn-ghost" onclick="desconectar()">Salir</button>
+    <button class="btn btn-primary" id="btn-save" onclick="guardarArchivo()" disabled>💾 Guardar</button>
+    <button class="btn btn-primary" id="btn-compile" onclick="compilar()" disabled>▶ Compilar</button>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+
+    <!-- Editor -->
+    <div id="editor-pane">
+      <div id="editor-toolbar">
+        <span class="file-tab">src/main.tex</span>
+        <div class="auto-toggle">
+          <span>Auto-compilar al guardar</span>
+          <button class="toggle-switch" id="auto-toggle" onclick="toggleAuto()"></button>
+        </div>
+      </div>
+      <div id="monaco-container"></div>
+      <div id="status-bar">
+        <div id="status-dot"></div>
+        <span id="status-text">Esperando conexión…</span>
+        <span style="margin-left:auto" id="cursor-pos"></span>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div id="preview-pane">
+      <div id="preview-toolbar">
+        <span class="label" id="pdf-label">Sin compilar</span>
+        <button class="btn btn-ghost" id="btn-download" onclick="descargarPDF()" disabled>⬇ Descargar PDF</button>
+      </div>
+      <div id="preview-frame-wrap">
+        <div id="preview-placeholder">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <span>Pulsa <strong>Compilar</strong> para ver el PDF</span>
+        </div>
+        <iframe id="preview-frame" class="hidden"></iframe>
+        <div id="compile-overlay" class="hidden">
+          <div class="spinner"></div>
+          <span id="overlay-text">Compilando…</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Log panel -->
+<div id="log-panel"></div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ── Scripts ────────────────────────────────────────────────────────────── -->
+<script>
+// ── Estado global ────────────────────────────────────────────────────────────
+let TOKEN   = sessionStorage.getItem('gh_token') || '';
+let REPO    = sessionStorage.getItem('gh_repo')  || '';
+let BRANCH  = 'main';
+let fileSHA = '';
+let editor  = null;
+let autoCompile = false;
+let pdfBlobUrl  = null;
+let saveTimer   = null;
+let pollingTimer = null;
+
+// ── Monaco setup ─────────────────────────────────────────────────────────────
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+require(['vs/editor/editor.main'], function () {
+  // Definir tema oscuro a medida
+  monaco.editor.defineTheme('latex-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'keyword',   foreground: '9d8fff', fontStyle: 'bold' },
+      { token: 'comment',   foreground: '6b7280', fontStyle: 'italic' },
+      { token: 'string',    foreground: '3dd68c' },
+      { token: 'delimiter', foreground: 'e2e4f0' },
+    ],
+    colors: {
+      'editor.background':           '#0f1117',
+      'editor.foreground':           '#e2e4f0',
+      'editor.lineHighlightBackground': '#1a1d27',
+      'editorLineNumber.foreground': '#3a3d50',
+      'editorCursor.foreground':     '#7c6af7',
+      'editor.selectionBackground':  '#7c6af722',
+    }
+  });
+
+  editor = monaco.editor.create(document.getElementById('monaco-container'), {
+    language:        'latex',
+    theme:           'latex-dark',
+    fontSize:        14,
+    fontFamily:      '"JetBrains Mono", "Fira Code", monospace',
+    fontLigatures:   true,
+    lineNumbers:     'on',
+    wordWrap:        'on',
+    minimap:         { enabled: false },
+    scrollBeyondLastLine: false,
+    renderLineHighlight: 'gutter',
+    value:           '% Cargando archivo…',
+  });
+
+  // Cursor position
+  editor.onDidChangeCursorPosition(e => {
+    document.getElementById('cursor-pos').textContent =
+      `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+  });
+
+  // Marcar como modificado
+  editor.onDidChangeModelContent(() => {
+    setStatus('dot', 'saving');
+    setStatus('text', 'Sin guardar');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      // auto-guardar tras 2s de inactividad si hay conexión
+      if (TOKEN && REPO) guardarArchivo(true);
+    }, 2000);
+  });
+
+  // Si ya había token guardado, conectar directamente
+  if (TOKEN && REPO) iniciarSesion();
+});
+
+// ── Helpers de UI ────────────────────────────────────────────────────────────
+function setStatus(type, value) {
+  if (type === 'dot') {
+    document.getElementById('status-dot').className = value;
+  } else {
+    document.getElementById('status-text').textContent = value;
+  }
+}
+
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  setTimeout(() => { el.className = ''; }, 3000);
+}
+
+function log(msg, type = 'info') {
+  const panel = document.getElementById('log-panel');
+  const line  = document.createElement('div');
+  const time  = new Date().toLocaleTimeString();
+  line.className = `log-line ${type}`;
+  line.textContent = `[${time}] ${msg}`;
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function toggleLog() {
+  document.getElementById('log-panel').classList.toggle('open');
+}
+
+function toggleAuto() {
+  autoCompile = !autoCompile;
+  document.getElementById('auto-toggle').classList.toggle('on', autoCompile);
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+async function conectar() {
+  TOKEN = document.getElementById('token-input').value.trim();
+  REPO  = document.getElementById('repo-input').value.trim().replace('https://github.com/', '');
+  if (!TOKEN || !REPO) { toast('Rellena token y repo', 'err'); return; }
+  sessionStorage.setItem('gh_token', TOKEN);
+  sessionStorage.setItem('gh_repo', REPO);
+  await iniciarSesion();
+}
+
+async function iniciarSesion() {
+  log(`Conectando a ${REPO}…`);
+  // Verificar repo y detectar branch por defecto
+  const r = await ghAPI(`repos/${REPO}`);
+  if (!r.ok) {
+    toast('Token o repo inválidos', 'err');
+    log('Error al conectar: ' + (await r.json()).message, 'err');
+    return;
+  }
+  const info = await r.json();
+  BRANCH = info.default_branch || 'main';
+  document.getElementById('repo-info').innerHTML =
+    `<strong>${REPO}</strong> · rama: ${BRANCH}`;
+
+  document.getElementById('auth-modal').classList.add('hidden');
+  document.getElementById('btn-save').disabled    = false;
+  document.getElementById('btn-compile').disabled = false;
+
+  setStatus('dot', '');
+  setStatus('text', 'Conectado');
+  log(`Repo OK — branch: ${BRANCH}`, 'ok');
+
+  await cargarArchivo();
+}
+
+function desconectar() {
+  sessionStorage.clear();
+  TOKEN = REPO = '';
+  location.reload();
+}
+
+// ── GitHub API ───────────────────────────────────────────────────────────────
+function ghAPI(path, opts = {}) {
+  return fetch(`https://api.github.com/${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(opts.headers || {})
+    }
+  });
+}
+
+// ── Cargar main.tex desde el repo ────────────────────────────────────────────
+async function cargarArchivo() {
+  log('Cargando src/main.tex…');
+  setStatus('text', 'Cargando…');
+  const r = await ghAPI(`repos/${REPO}/contents/src/main.tex?ref=${BRANCH}`);
+  if (!r.ok) {
+    log('No se encontró src/main.tex — usando plantilla por defecto', 'info');
+    setStatus('dot', 'saved');
+    setStatus('text', 'Archivo nuevo');
+    return;
+  }
+  const data  = await r.json();
+  fileSHA     = data.sha;
+  const texto = atob(data.content.replace(/\n/g, ''));
+  editor.setValue(texto);
+  setStatus('dot', 'saved');
+  setStatus('text', 'Cargado correctamente');
+  log('Archivo cargado OK', 'ok');
+
+  // Intentar mostrar último PDF compilado
+  await cargarUltimoPDF();
+}
+
+// ── Guardar archivo en GitHub ─────────────────────────────────────────────────
+async function guardarArchivo(silencioso = false) {
+  if (!TOKEN || !REPO) return;
+  setStatus('dot', 'saving');
+  setStatus('text', 'Guardando…');
+  log('Guardando src/main.tex…');
+
+  const contenido = btoa(unescape(encodeURIComponent(editor.getValue())));
+  const body = {
+    message: 'docs: actualizar main.tex desde editor web',
+    content: contenido,
+    branch:  BRANCH,
+    ...(fileSHA ? { sha: fileSHA } : {})
+  };
+
+  const r = await ghAPI(`repos/${REPO}/contents/src/main.tex`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (r.ok) {
+    const data = await r.json();
+    fileSHA = data.content.sha;
+    setStatus('dot', 'saved');
+    setStatus('text', 'Guardado');
+    if (!silencioso) toast('Archivo guardado ✓');
+    log('Guardado OK', 'ok');
+    if (autoCompile) {
+      log('Auto-compilar activado, lanzando compilación…', 'info');
+      await compilar();
+    }
+  } else {
+    const err = await r.json();
+    setStatus('dot', 'error');
+    setStatus('text', 'Error al guardar');
+    toast('Error al guardar: ' + err.message, 'err');
+    log('Error guardando: ' + err.message, 'err');
+  }
+}
+
+// ── Disparar workflow de compilación ─────────────────────────────────────────
+async function compilar() {
+  if (!TOKEN || !REPO) return;
+  log('Disparando workflow de compilación…');
+  setStatus('dot', 'running');
+  setStatus('text', 'Compilando…');
+
+  // Primero guardar si hay cambios
+  await guardarArchivo(true);
+
+  const r = await ghAPI(`repos/${REPO}/actions/workflows/compile.yml/dispatches`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: BRANCH, inputs: { commit_message: 'Desde editor web' } })
+  });
+
+  if (r.status === 204) {
+    log('Workflow lanzado. Esperando resultado…', 'ok');
+    toast('Compilación iniciada…');
+    mostrarOverlay(true, 'Compilando con tectonic…');
+    // Esperar un poco y luego hacer polling
+    setTimeout(() => pollCompilacion(), 5000);
+  } else {
+    const txt = await r.text();
+    log('Error al lanzar workflow: ' + txt, 'err');
+    toast('Error al compilar', 'err');
+    setStatus('dot', 'error');
+    setStatus('text', 'Error al lanzar compilación');
+  }
+}
+
+// ── Polling del estado del workflow ──────────────────────────────────────────
+async function pollCompilacion(intentos = 0) {
+  if (intentos > 40) { // ~3 min máximo
+    mostrarOverlay(false);
+    toast('Tiempo de espera agotado', 'err');
+    log('Timeout esperando compilación', 'err');
+    return;
+  }
+
+  const r = await ghAPI(`repos/${REPO}/actions/runs?branch=${BRANCH}&per_page=5`);
+  if (!r.ok) { setTimeout(() => pollCompilacion(intentos + 1), 5000); return; }
+
+  const data  = await r.json();
+  const runs  = data.workflow_runs || [];
+  const run   = runs.find(x => x.name === 'Compile LaTeX' || x.path?.includes('compile'));
+
+  if (!run) { setTimeout(() => pollCompilacion(intentos + 1), 5000); return; }
+
+  const { status, conclusion } = run;
+  log(`Workflow: ${status} / ${conclusion || '…'}`, 'info');
+
+  if (status === 'completed') {
+    if (conclusion === 'success') {
+      log('Compilación exitosa ✓', 'ok');
+      toast('PDF compilado ✓', 'ok');
+      setStatus('dot', 'saved');
+      setStatus('text', 'Compilado');
+      mostrarOverlay(false);
+      // Esperar un poco para que el PDF esté disponible en el repo
+      setTimeout(async () => await cargarUltimoPDF(), 3000);
+    } else {
+      log(`Compilación fallida: ${conclusion}`, 'err');
+      toast('Error de compilación — revisa el log', 'err');
+      setStatus('dot', 'error');
+      setStatus('text', 'Error de compilación');
+      mostrarOverlay(false);
+    }
+  } else {
+    const eta = Math.round((intentos * 5 + 5));
+    document.getElementById('overlay-text').textContent = `Compilando… (${eta}s)`;
+    setTimeout(() => pollCompilacion(intentos + 1), 5000);
+  }
+}
+
+// ── Cargar último PDF desde el repo ──────────────────────────────────────────
+async function cargarUltimoPDF() {
+  log('Buscando PDF en out/main.pdf…');
+  const r = await ghAPI(`repos/${REPO}/contents/out/main.pdf?ref=${BRANCH}`);
+  if (!r.ok) { log('PDF no encontrado aún', 'info'); return; }
+
+  const data  = await r.json();
+  // download_url da acceso público si el repo es público; si es privado usamos la API
+  const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, '')), c => c.charCodeAt(0));
+  const blob  = new Blob([bytes], { type: 'application/pdf' });
+  if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+  pdfBlobUrl  = URL.createObjectURL(blob);
+
+  const frame = document.getElementById('preview-frame');
+  frame.src   = pdfBlobUrl;
+  frame.classList.remove('hidden');
+  document.getElementById('preview-placeholder').classList.add('hidden');
+  document.getElementById('pdf-label').textContent = `out/main.pdf — ${new Date().toLocaleTimeString()}`;
+  document.getElementById('btn-download').disabled = false;
+  log('PDF cargado en el visor', 'ok');
+}
+
+// ── Descargar PDF ─────────────────────────────────────────────────────────────
+function descargarPDF() {
+  if (!pdfBlobUrl) return;
+  const a = document.createElement('a');
+  a.href = pdfBlobUrl;
+  a.download = 'documento.pdf';
+  a.click();
+}
+
+// ── Overlay de compilación ────────────────────────────────────────────────────
+function mostrarOverlay(show, msg = 'Compilando…') {
+  const el = document.getElementById('compile-overlay');
+  el.classList.toggle('hidden', !show);
+  if (show) document.getElementById('overlay-text').textContent = msg;
+}
+</script>
+
+</body>
+</html>
