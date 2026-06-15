@@ -1,0 +1,20 @@
+# LaTeX auxiliares
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.xdv
+
+# El PDF SÍ se versiona (lo genera el workflow)
+# out/main.pdf → se incluye
+
+# OS
+.DS_Store
+Thumbs.db
