@@ -1,0 +1,55 @@
+name: Compile LaTeX
+
+on:
+  # Compilación manual desde la UI de GitHub o desde el editor web
+  workflow_dispatch:
+    inputs:
+      commit_message:
+        description: "Mensaje del commit que disparó la compilación"
+        required: false
+        default: "Compilación manual"
+
+  # Compilación automática al hacer push de archivos .tex
+  push:
+    paths:
+      - "src/**.tex"
+      - "src/**.bib"
+      - "src/**.sty"
+      - "src/**.cls"
+
+permissions:
+  contents: write   # necesario para subir el PDF al repo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Instalar Tectonic
+        uses: wtfjoke/setup-tectonic@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compilar LaTeX
+        run: |
+          cd src
+          tectonic main.tex --outdir ../out --keep-logs
+
+      - name: Subir PDF como artifact de Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: documento-pdf
+          path: out/main.pdf
+          retention-days: 30
+
+      - name: Commit y push del PDF al repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add out/main.pdf out/*.log || true
+          git diff --cached --quiet || git commit -m "docs: actualizar PDF compilado [skip ci]"
+          git push
