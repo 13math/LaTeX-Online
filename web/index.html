@@ -473,7 +473,7 @@ async function cargarArchivo() {
   }
   const data  = await r.json();
   fileSHA     = data.sha;
-  const texto = atob(data.content.replace(/\n/g, ''));
+  const texto = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
   editor.setValue(texto);
   setStatus('dot', 'saved');
   setStatus('text', 'Cargado correctamente');
