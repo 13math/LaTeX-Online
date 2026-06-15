@@ -1,62 +1,38 @@
-\documentclass[12pt, a4paper]{article}
+\documentclass[12pt,a4paper]{article}
 
-% ââ Paquetes bÃ¡sicos ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage[spanish]{babel}
-\usepackage{amsmath, amssymb}
-\usepackage{graphicx}
-\usepackage{hyperref}
-\usepackage{geometry}
-\geometry{margin=2.5cm}
+% --- Paquetes básicos ---
+\usepackage[utf8]{inputenc} % Para usar tildes y caracteres especiales directamente
+\usepackage[spanish]{babel} % Para que los títulos automáticos estén en español
+\usepackage{amsmath}        % Paquete estándar para matemáticas avanzadas
 
-% ââ Metadata ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-\title{Mi Documento}
-\author{Tu Nombre}
+% --- Información del título ---
+\title{Mi Primer Documento de Prueba}
+\author{Usuario de GitHub}
 \date{\today}
 
-% âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 \begin{document}
 
 \maketitle
 
-\begin{abstract}
-  Este es el documento de ejemplo del template de \LaTeX{} online.
-  EdÃ­talo desde el editor web y pulsa \textbf{Compilar} para generar el PDF.
-\end{abstract}
+\section{Introducción}
+Este es un documento de ejemplo escrito en \LaTeX. El propósito de este archivo es probar la compilación automática usando GitHub Actions. Si estás leyendo el PDF generado, ¡significa que el flujo de trabajo ha sido un éxito!
 
-\tableofcontents
-\newpage
+\section{Fórmulas Matemáticas}
+Una de las mayores ventajas de usar \LaTeX{} es la facilidad para escribir matemáticas con excelente calidad tipográfica. Aquí tienes un par de ejemplos clásicos:
 
-% ââ Secciones âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-\section{IntroducciÃ³n}
-
-Bienvenido a tu compilador de \LaTeX{} personal.
-Este template incluye:
-
-\begin{itemize}
-  \item Editor web con resaltado de sintaxis
-  \item CompilaciÃ³n automÃ¡tica al guardar (opcional)
-  \item PDF generado y almacenado en el propio repositorio
-\end{itemize}
-
-\section{MatemÃ¡ticas}
-
-Las ecuaciones funcionan perfectamente. Por ejemplo, la identidad de Euler:
-
+La famosa ecuación de equivalencia entre masa y energía de Einstein:
 \begin{equation}
-  e^{i\pi} + 1 = 0
+    E = mc^2
 \end{equation}
 
-O una integral:
-
+Y la fórmula general para resolver ecuaciones de segundo grado:
 \begin{equation}
-  \int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
+    x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
 \end{equation}
 
-\section{ConclusiÃ³n}
-
-Empieza a escribir tu propio contenido aquÃ­. \\
-Â¡Buena suerte con tu documento!
+\vspace{1cm}
+\begin{center}
+    \textbf{¡Fin de la prueba!}
+\end{center}
 
 \end{document}
