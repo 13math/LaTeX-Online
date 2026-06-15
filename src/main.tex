@@ -1,11 +1,11 @@
 \documentclass[12pt,a4paper]{article}
 
-% --- Paquetes bÃÂ¡sicos ---
+% --- Paquetes básicos ---
 \usepackage[utf8]{inputenc} % Para usar tildes y caracteres especiales directamente
-\usepackage[spanish]{babel} % Para que los tÃÂ­tulos automÃÂ¡ticos estÃÂ©n en espaÃÂ±ol
-\usepackage{amsmath}        % Paquete estÃÂ¡ndar para matemÃÂ¡ticas avanzadas
+\usepackage[spanish]{babel} % Para que los títulos automáticos (como el del índice) estén en español
+\usepackage{amsmath}        % Paquete estándar para matemáticas avanzadas
 
-% --- InformaciÃÂ³n del tÃÂ­tulo ---
+% --- Información del título ---
 \title{Mi Primer Documento de Prueba}
 \author{Usuario de GitHub}
 \date{\today}
@@ -14,26 +14,32 @@
 
 \maketitle
 
+% --- ÍNDICE DE CONTENIDOS ---
 \tableofcontents
+\vspace{1cm} % Añade un poco de espacio vertical entre el índice y el primer párrafo
+% \newpage % (Opcional) Descomenta esta línea si quieres que el texto empiece en la siguiente página
 
-\section{IntroduncciÃ³n a la computaciÃ³n cuÃ¡ntica}
-La computaciÃ³n cuÃ¡ntica es un...
+\section{Introducción}
+Este es un documento de ejemplo escrito en \LaTeX. El propósito de este archivo es probar la compilación automática usando GitHub Actions. Si estás leyendo el PDF generado, ¡significa que el flujo de trabajo ha sido un éxito!
 
-\section{IntroducciÃ³n a las derivadas}
+\section{Fórmulas Matemáticas}
+Una de las mayores ventajas de usar \LaTeX{} es la facilidad para escribir matemáticas con excelente calidad tipográfica. Aquí tienes un par de ejemplos clásicos:
 
-Una derivada es...
+\subsection{Ecuaciones de la Física}
+La famosa ecuación de equivalencia entre masa y energía de Einstein:
+\begin{equation}
+    E = mc^2
+\end{equation}
 
-La notaciÃ³n usual es:
-$$
-u'
-$$
+\subsection{Ecuaciones del Álgebra}
+Y la fórmula general para resolver ecuaciones de segundo grado:
+\begin{equation}
+    x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+\end{equation}
 
-\section{Integrales}
+\vspace{1cm}
+\begin{center}
+    \textbf{¡Fin de la prueba!}
+\end{center}
 
-La Integral siguiente:
-$$
-\int x^3\ dx
-$$
-
-Es muy sencilla de resolver.
 \end{document}
